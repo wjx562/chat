@@ -37,12 +37,18 @@
         .func-btn:active {
             background-color: #0066cc;
         }
-        /* 摄像头预览区域 */
+        /* 摄像头预览（改为右下角小悬浮窗，不遮挡聊天） */
         #camera-container {
-            flex: 1;
             display: none;
-            position: relative;
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            width: 200px;
+            height: 150px;
             background-color: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            z-index: 100;
         }
         #camera-preview {
             width: 100%;
@@ -51,14 +57,14 @@
         }
         #capture-btn {
             position: absolute;
-            bottom: 20px;
+            bottom: 5px;
             left: 50%;
             transform: translateX(-50%);
-            width: 60px;
-            height: 60px;
+            width: 30px;
+            height: 30px;
             border-radius: 50%;
             background-color: #fff;
-            border: 4px solid #ddd;
+            border: 2px solid #ddd;
             cursor: pointer;
         }
         /* 聊天区域 */
@@ -119,11 +125,10 @@
     <!-- 功能按钮区 -->
     <div class="btn-group">
         <button class="func-btn" onclick="openCamera()">环境视觉</button>
-        <button class="func-btn" onclick="startScreenCapture()">屏幕识别</button>
         <button class="func-btn" onclick="closeCamera()">关闭摄像头</button>
     </div>
 
-    <!-- 摄像头预览区 -->
+    <!-- 摄像头预览区（右下角小窗口） -->
     <div id="camera-container">
         <video id="camera-preview" autoplay playsinline></video>
         <button id="capture-btn" onclick="captureAndAnalyze()"></button>
@@ -139,21 +144,19 @@
     </div>
 
     <script>
-        // ========== 核心配置（已替换为你的密钥和模型） ==========
-        const DOUBAO_API_KEY = "34ecff81-0e0c-4c1d-8182-cb1d6889e2ee"; // 你的API密钥
-        const DOUBAO_MODEL = "doubao-seed-2-0-pro-260215"; // 你的专属模型
-        const DOUBAO_API_URL = "https://www.doubao.com/api/v1/chat/completions";
+        // ========== 核心配置（你的密钥和模型） ==========
+        const DOUBAO_API_KEY = "34ecff81-0e0c-4c1d-8182-cb1d6889e2ee";
+        const DOUBAO_MODEL = "doubao-seed-2-0-pro-260215";
+        const DOUBAO_API_URL = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"; // 修正为豆包官方API地址
         
         // 全局变量
         let stream = null; // 摄像头流
-        let screenStream = null; // 屏幕流
 
-        // 1. 打开摄像头
+        // 1. 打开摄像头（显示右下角小预览）
         async function openCamera() {
             try {
-                // 显示摄像头预览区，隐藏聊天区
+                // 显示摄像头预览区（右下角小窗口）
                 document.getElementById('camera-container').style.display = 'block';
-                document.getElementById('chat-container').style.display = 'none';
 
                 // 请求摄像头权限
                 stream = await navigator.mediaDevices.getUserMedia({
@@ -165,10 +168,10 @@
                     audio: false
                 });
 
-                // 显示摄像头画面
+                // 显示摄像头画面（小窗口）
                 const preview = document.getElementById('camera-preview');
                 preview.srcObject = stream;
-                addChatMsg("系统", "摄像头已打开，点击底部按钮分析画面", "ai");
+                addChatMsg("系统", "摄像头已打开，点击小窗口按钮分析画面", "ai");
             } catch (error) {
                 addChatMsg("系统", "摄像头打开失败：" + error.message, "ai");
                 console.error("摄像头错误：", error);
@@ -182,13 +185,17 @@
                 stream = null;
             }
             document.getElementById('camera-container').style.display = 'none';
-            document.getElementById('chat-container').style.display = 'block';
             addChatMsg("系统", "摄像头已关闭", "ai");
         }
 
         // 3. 捕获摄像头画面并发送给AI分析
         async function captureAndAnalyze() {
             try {
+                if (!stream) {
+                    addChatMsg("系统", "摄像头未打开", "ai");
+                    return;
+                }
+
                 const preview = document.getElementById('camera-preview');
                 const canvas = document.createElement('canvas');
                 
@@ -201,7 +208,7 @@
                 // 转换为Base64（压缩图片，减少传输大小）
                 const imageBase64 = canvas.toDataURL('image/jpeg', 0.8);
                 
-                // 显示捕获的图片
+                // 显示捕获的图片（可选，可隐藏）
                 addChatMsg("我", "", "user", imageBase64);
                 addChatMsg("AI", "正在分析画面...", "ai");
 
@@ -215,51 +222,7 @@
             }
         }
 
-        // 4. 屏幕识别（录制屏幕并发送给AI）
-        async function startScreenCapture() {
-            try {
-                // 请求屏幕录制权限
-                screenStream = await navigator.mediaDevices.getDisplayMedia({
-                    video: true,
-                    audio: false
-                });
-
-                // 显示屏幕录制提示
-                addChatMsg("系统", "已开始屏幕录制，正在捕获当前屏幕...", "ai");
-                
-                // 捕获第一帧屏幕画面
-                const video = document.createElement('video');
-                video.srcObject = screenStream;
-                video.play();
-
-                // 等待视频加载完成后捕获画面
-                video.onloadeddata = async () => {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = video.videoWidth;
-                    canvas.height = video.videoHeight;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(video, 0, 0);
-                    
-                    const imageBase64 = canvas.toDataURL('image/jpeg', 0.8);
-                    addChatMsg("我", "屏幕识别", "user", imageBase64);
-                    addChatMsg("AI", "正在分析屏幕内容...", "ai");
-
-                    // 调用AI分析屏幕
-                    const aiReply = await sendImageToDoubao(imageBase64, "分析这张屏幕截图，描述显示的内容");
-                    addChatMsg("AI", aiReply, "ai");
-
-                    // 停止屏幕录制
-                    screenStream.getTracks().forEach(track => track.stop());
-                    screenStream = null;
-                };
-
-            } catch (error) {
-                addChatMsg("系统", "屏幕录制失败：" + error.message, "ai");
-                console.error("屏幕录制错误：", error);
-            }
-        }
-
-        // 5. 发送文字消息给AI
+        // 4. 发送文字消息给AI
         async function sendTextMsg() {
             const input = document.getElementById('msg-input');
             const text = input.value.trim();
@@ -278,7 +241,7 @@
             updateLastMsg(aiReply);
         }
 
-        // 6. 调用豆包API - 发送图片
+        // 5. 调用豆包API - 发送图片
         async function sendImageToDoubao(imageBase64, prompt) {
             try {
                 const response = await fetch(DOUBAO_API_URL, {
@@ -288,7 +251,7 @@
                         "Authorization": "Bearer " + DOUBAO_API_KEY
                     },
                     body: JSON.stringify({
-                        model: DOUBAO_MODEL, // 使用你的专属模型
+                        model: DOUBAO_MODEL,
                         messages: [
                             {
                                 role: "user",
@@ -311,7 +274,7 @@
             }
         }
 
-        // 7. 调用豆包API - 发送文字
+        // 6. 调用豆包API - 发送文字
         async function sendTextToDoubao(text) {
             try {
                 const response = await fetch(DOUBAO_API_URL, {
@@ -321,7 +284,7 @@
                         "Authorization": "Bearer " + DOUBAO_API_KEY
                     },
                     body: JSON.stringify({
-                        model: DOUBAO_MODEL, // 使用你的专属模型
+                        model: DOUBAO_MODEL,
                         messages: [
                             { role: "user", content: text }
                         ],
@@ -338,12 +301,12 @@
             }
         }
 
-        // 8. 添加聊天消息到界面
+        // 7. 添加聊天消息到界面
         function addChatMsg(sender, content, type, imageBase64 = "") {
             const chatContainer = document.getElementById('chat-container');
             const msgDiv = document.createElement('div');
             msgDiv.className = `message ${type}-msg`;
-            msgDiv.id = "msg-" + Date.now(); // 唯一ID
+            msgDiv.id = "msg-" + Date.now();
 
             let html = `<div class="msg-content">${content || ""}</div>`;
             if (imageBase64) {
@@ -352,11 +315,10 @@
 
             msgDiv.innerHTML = html;
             chatContainer.appendChild(msgDiv);
-            // 滚动到底部
             chatContainer.scrollTop = chatContainer.scrollHeight;
         }
 
-        // 9. 更新最后一条消息（AI回复）
+        // 8. 更新最后一条消息（AI回复）
         function updateLastMsg(content) {
             const chatContainer = document.getElementById('chat-container');
             const lastMsg = chatContainer.lastChild;
@@ -374,7 +336,7 @@
         });
 
         // 初始化
-        addChatMsg("AI", "你好！我是你的AI搭档，支持环境视觉和屏幕识别功能～", "ai");
+        addChatMsg("AI", "你好！我是你的AI搭档，支持环境视觉功能～", "ai");
     </script>
 </body>
 </html>
