@@ -2,629 +2,379 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>自定义AI搭档 - 豆包视频聊天</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>我的 AI 搭档</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
         }
-
         body {
             background-color: #f5f5f5;
             height: 100vh;
             display: flex;
             flex-direction: column;
         }
-
-        /* 顶部导航栏 */
-        .top-bar {
-            background-color: white;
-            padding: 12px 16px;
+        /* 顶部功能按钮 */
+        .btn-group {
+            padding: 10px;
+            background-color: #fff;
             display: flex;
-            align-items: center;
-            border-bottom: 1px solid #e5e5e5;
-            position: sticky;
-            top: 0;
-            z-index: 100;
+            gap: 10px;
+            flex-wrap: wrap;
         }
-
-        .back-btn {
-            width: 36px;
-            height: 36px;
-            border-radius: 18px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 18px;
-            color: #333;
-            margin-right: 12px;
-            cursor: pointer;
-            display: none;
-        }
-
-        .title {
-            font-size: 18px;
-            font-weight: 600;
-            color: #333;
-            flex: 1;
-        }
-
-        .edit-btn {
-            width: 36px;
-            height: 36px;
-            border-radius: 18px;
-            background-color: #f0f0f0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 16px;
-            color: #333;
-            cursor: pointer;
-        }
-
-        /* 搭档设置面板 */
-        .partner-setting {
-            background-color: white;
-            padding: 20px;
-            display: none;
-        }
-
-        .partner-setting.active {
-            display: block;
-        }
-
-        .setting-item {
-            margin-bottom: 20px;
-        }
-
-        .setting-item label {
-            display: block;
-            margin-bottom: 8px;
-            font-size: 14px;
-            color: #666;
-        }
-
-        .setting-item input,
-        .setting-item textarea {
-            width: 100%;
-            padding: 12px 16px;
-            border: 1px solid #e5e5e5;
-            border-radius: 12px;
-            font-size: 16px;
-            background-color: #fafafa;
-        }
-
-        .setting-item textarea {
-            min-height: 120px;
-            resize: vertical;
-        }
-
-        .setting-actions {
-            display: flex;
-            gap: 12px;
-            justify-content: flex-end;
-        }
-
-        .btn {
-            padding: 10px 24px;
-            border-radius: 20px;
-            font-size: 16px;
-            font-weight: 500;
-            cursor: pointer;
-            border: none;
-        }
-
-        .btn-cancel {
-            background-color: #f0f0f0;
-            color: #333;
-        }
-
-        .btn-save {
+        .func-btn {
+            padding: 8px 15px;
             background-color: #007aff;
-            color: white;
-        }
-
-        /* 👇 AI视觉区域（摄像头+屏幕 超小尺寸） */
-        .ai-vision-section {
-            background-color: white;
-            margin: 6px 12px;
-            border-radius: 12px;
-            padding: 6px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
-        }
-
-        .vision-container {
-            width: 100%;
-            height: 70px; /*  ultra小高度 */
+            color: #fff;
+            border: none;
             border-radius: 8px;
-            background-color: #f0f0f0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-            position: relative;
-            margin-bottom: 6px;
+            font-size: 14px;
+            cursor: pointer;
         }
-
-        #camera-view, #screen-view {
+        .func-btn:active {
+            background-color: #0066cc;
+        }
+        /* 摄像头预览区域 */
+        #camera-container {
+            flex: 1;
+            display: none;
+            position: relative;
+            background-color: #000;
+        }
+        #camera-preview {
             width: 100%;
             height: 100%;
             object-fit: cover;
-            display: none;
         }
-
-        #vision-tip {
-            color: #999;
-            font-size: 12px;
-        }
-
-        .vision-controls {
-            display: flex;
-            gap: 5px;
-        }
-
-        .vision-btn {
-            flex: 1;
-            padding: 5px;
-            border-radius: 8px;
-            font-size: 11px;
-            font-weight: 500;
+        #capture-btn {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background-color: #fff;
+            border: 4px solid #ddd;
             cursor: pointer;
-            border: none;
-            color: white;
         }
-
-        .vision-btn.start { background-color: #007aff; }
-        .vision-btn.stop { background-color: #ff3b30; }
-        .vision-btn.flip { background-color: #8e8e93; }
-        .vision-btn.screen { background-color: #5856d6; }
-
         /* 聊天区域 */
-        .chat-area {
+        #chat-container {
             flex: 1;
-            padding: 12px;
+            padding: 10px;
             overflow-y: auto;
-            background-color: #f5f5f5;
         }
-
         .message {
-            margin-bottom: 16px;
-            max-width: 75%;
+            margin: 10px 0;
+            max-width: 80%;
         }
-
-        .user-message {
+        .user-msg {
             margin-left: auto;
-        }
-
-        .bot-message {
-            margin-right: auto;
-        }
-
-        .message-content {
-            padding: 12px 16px;
-            border-radius: 20px;
-            line-height: 1.5;
-            font-size: 16px;
-        }
-
-        .user-message .message-content {
             background-color: #007aff;
-            color: white;
-            border-bottom-right-radius: 4px;
+            color: #fff;
+            padding: 10px;
+            border-radius: 10px 10px 0 10px;
         }
-
-        .bot-message .message-content {
-            background-color: white;
-            color: #333;
-            border-bottom-left-radius: 4px;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        .ai-msg {
+            margin-right: auto;
+            background-color: #fff;
+            padding: 10px;
+            border-radius: 10px 10px 10px 0;
+            border: 1px solid #eee;
+        }
+        .msg-img {
+            width: 100%;
+            border-radius: 8px;
+            margin-top: 5px;
+        }
+        /* 输入区域 */
+        .input-group {
+            padding: 10px;
+            background-color: #fff;
             display: flex;
-            align-items: flex-start;
             gap: 10px;
         }
-
-        .bot-avatar {
-            width: 32px;
-            height: 32px;
-            border-radius: 16px;
-            flex-shrink: 0;
-            object-fit: cover;
-        }
-
-        .partner-tag {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            background-color: #e6f2ff;
-            color: #007aff;
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 12px;
-            margin-bottom: 6px;
-        }
-
-        .thinking {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            color: #999;
+        #msg-input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            outline: none;
             font-size: 14px;
         }
-
-        .thinking-dot {
-            width: 4px;
-            height: 4px;
-            border-radius: 50%;
-            background: #999;
-            animation: blink 1.4s infinite both;
-        }
-
-        .thinking-dot:nth-child(2) { animation-delay: 0.2s; }
-        .thinking-dot:nth-child(3) { animation-delay: 0.4s; }
-
-        @keyframes blink {
-            0% { opacity: 0.2; } 20% { opacity: 1; } 100% { opacity: 0.2; }
-        }
-
-        /* 输入区域 */
-        .input-area {
-            background-color: white;
-            padding: 12px 16px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            border-top: 1px solid #e5e5e5;
-        }
-
-        .upload-btn {
-            width: 40px;
-            height: 40px;
-            border-radius: 20px;
-            background-color: #f0f0f0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            color: #333;
-            cursor: pointer;
-        }
-
-        #message-input {
-            flex: 1;
-            padding: 12px 16px;
-            border: none;
-            border-radius: 20px;
-            font-size: 16px;
-            background-color: #f0f0f0;
-            outline: none;
-        }
-
         #send-btn {
-            width: 40px;
-            height: 40px;
-            border-radius: 20px;
+            padding: 10px 20px;
             background-color: #007aff;
-            color: white;
+            color: #fff;
             border: none;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 18px;
+            border-radius: 20px;
             cursor: pointer;
         }
     </style>
 </head>
 <body>
-    <div class="top-bar">
-        <div class="back-btn" id="back-btn">←</div>
-        <div class="title" id="page-title">我的搭档</div>
-        <div class="edit-btn" id="edit-btn">✏️</div>
+    <!-- 功能按钮区 -->
+    <div class="btn-group">
+        <button class="func-btn" onclick="openCamera()">环境视觉</button>
+        <button class="func-btn" onclick="startScreenCapture()">屏幕识别</button>
+        <button class="func-btn" onclick="closeCamera()">关闭摄像头</button>
     </div>
 
-    <div class="partner-setting" id="partner-setting">
-        <div class="setting-item">
-            <label>搭档名称</label>
-            <input type="text" id="partner-name" placeholder="例如：豆包女王">
-        </div>
-        <div class="setting-item">
-            <label>人物设定 (Prompt)</label>
-            <textarea id="partner-prompt" placeholder="输入你的AI搭档的角色设定..."></textarea>
-        </div>
-        <div class="setting-item">
-            <label>搭档头像链接</label>
-            <input type="text" id="partner-avatar" placeholder="输入图片URL">
-        </div>
-        <div class="setting-actions">
-            <button class="btn btn-cancel" id="cancel-setting">取消</button>
-            <button class="btn btn-save" id="save-setting">保存</button>
-        </div>
+    <!-- 摄像头预览区 -->
+    <div id="camera-container">
+        <video id="camera-preview" autoplay playsinline></video>
+        <button id="capture-btn" onclick="captureAndAnalyze()"></button>
     </div>
 
-    <!-- 👇 摄像头 + 屏幕 二合一超小视觉区 -->
-    <div class="ai-vision-section">
-        <div class="vision-container">
-            <video id="camera-view" autoplay playsinline></video>
-            <video id="screen-view" autoplay playsinline></video>
-            <span id="vision-tip">AI辅助已就绪</span>
-        </div>
-        <div class="vision-controls">
-            <button class="vision-btn start" id="camera-btn">环境视觉</button>
-            <button class="vision-btn flip" id="flip-btn" disabled>切换</button>
-            <button class="vision-btn screen" id="screen-btn">屏幕识别</button>
-        </div>
-    </div>
+    <!-- 聊天区域 -->
+    <div id="chat-container"></div>
 
-    <div class="chat-area" id="chat-area">
-        <div class="message bot-message">
-            <div class="partner-tag">
-                <span id="partner-tag-name">豆包</span>
-            </div>
-            <div class="message-content">
-                <img class="bot-avatar" id="chat-avatar" src="https://p3-passport.byteacctimg.com/img/user-avatar/39f8793479951508867d229765687475~300x300.image">
-                <span>你好！我可以看屏幕、看环境、看图片辅助聊天～</span>
-            </div>
-        </div>
-    </div>
-
-    <div class="input-area">
-        <button class="upload-btn" id="upload-btn">📷</button>
-        <input type="text" id="message-input" placeholder="输入问题...">
-        <button id="send-btn">↑</button>
+    <!-- 输入区域 -->
+    <div class="input-group">
+        <input type="text" id="msg-input" placeholder="输入消息...">
+        <button id="send-btn" onclick="sendTextMsg()">发送</button>
     </div>
 
     <script>
-        const CONFIG = {
-            model: "doubao-seed-2-0-pro-260215",
-            apiKey: "34ecff81-0e0c-4c1d-8182-cb1d6889e2ee",
-            apiUrl: "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
-        };
+        // ========== 核心配置（已替换为你的密钥和模型） ==========
+        const DOUBAO_API_KEY = "34ecff81-0e0c-4c1d-8182-cb1d6889e2ee"; // 你的API密钥
+        const DOUBAO_MODEL = "doubao-seed-2-0-pro-260215"; // 你的专属模型
+        const DOUBAO_API_URL = "https://www.doubao.com/api/v1/chat/completions";
+        
+        // 全局变量
+        let stream = null; // 摄像头流
+        let screenStream = null; // 屏幕流
 
-        let partnerInfo = JSON.parse(localStorage.getItem('partnerInfo')) || {
-            name: "豆包", prompt: "", avatar: "https://p3-passport.byteacctimg.com/img/user-avatar/39f8793479951508867d229765687475~300x300.image"
-        };
+        // 1. 打开摄像头
+        async function openCamera() {
+            try {
+                // 显示摄像头预览区，隐藏聊天区
+                document.getElementById('camera-container').style.display = 'block';
+                document.getElementById('chat-container').style.display = 'none';
 
-        // 👇 新增：屏幕捕获变量
-        let stream = null, screenStream = null;
-        let currentFacingMode = "environment";
-        let latestFrame = null, latestScreenFrame = null;
-        let captureInterval = null, screenCaptureInterval = null;
-        let selectedImage = null;
+                // 请求摄像头权限
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        facingMode: 'environment', // 优先使用后置摄像头
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    },
+                    audio: false
+                });
 
-        const DOM = {
-            setting: document.getElementById('partner-setting'),
-            backBtn: document.getElementById('back-btn'),
-            title: document.getElementById('page-title'),
-            editBtn: document.getElementById('edit-btn'),
-            cancelBtn: document.getElementById('cancel-setting'),
-            saveBtn: document.getElementById('save-setting'),
-            pName: document.getElementById('partner-name'),
-            pPrompt: document.getElementById('partner-prompt'),
-            pAvatar: document.getElementById('partner-avatar'),
-            tagName: document.getElementById('partner-tag-name'),
-            chatAvatar: document.getElementById('chat-avatar'),
-            cameraBtn: document.getElementById('camera-btn'),
-            flipBtn: document.getElementById('flip-btn'),
-            screenBtn: document.getElementById('screen-btn'),
-            cameraView: document.getElementById('camera-view'),
-            screenView: document.getElementById('screen-view'),
-            visionTip: document.getElementById('vision-tip'),
-            uploadBtn: document.getElementById('upload-btn'),
-            input: document.getElementById('message-input'),
-            sendBtn: document.getElementById('send-btn'),
-            chat: document.getElementById('chat-area')
-        };
-
-        // 初始化
-        function init() {
-            updatePartnerUI();
-            DOM.editBtn.onclick = showSetting;
-            DOM.backBtn.onclick = DOM.cancelBtn.onclick = hideSetting;
-            DOM.saveBtn.onclick = savePartner;
-            DOM.cameraBtn.onclick = toggleCamera;
-            DOM.flipBtn.onclick = flipCamera;
-            DOM.screenBtn.onclick = toggleScreen; // 👈 屏幕捕获
-            DOM.uploadBtn.onclick = uploadImage;
-            DOM.sendBtn.onclick = () => send(false);
-            DOM.sendBtn.ontouchstart = (e) => {
-                let t = setTimeout(()=>{send(true)},500);
-                DOM.sendBtn.ontouchend = ()=>clearTimeout(t);
-            };
-            DOM.input.onkeydown = e=>e.key==='Enter'&&send(false);
-        }
-
-        // 👇 核心：屏幕捕获（识别手机屏幕）
-        async function toggleScreen(){
-            if(screenStream){
-                screenStream.getTracks().forEach(t=>t.stop());
-                screenStream = null;
-                clearInterval(screenCaptureInterval);
-                DOM.screenView.style.display = 'none';
-                DOM.visionTip.textContent = '屏幕识别已关闭';
-                DOM.screenBtn.textContent = '屏幕识别';
-                DOM.screenBtn.classList.remove('stop');
-                DOM.screenBtn.classList.add('start');
-                return;
+                // 显示摄像头画面
+                const preview = document.getElementById('camera-preview');
+                preview.srcObject = stream;
+                addChatMsg("系统", "摄像头已打开，点击底部按钮分析画面", "ai");
+            } catch (error) {
+                addChatMsg("系统", "摄像头打开失败：" + error.message, "ai");
+                console.error("摄像头错误：", error);
             }
-            try{
-                screenStream = await navigator.mediaDevices.getDisplayMedia({video:true, audio:false});
-                DOM.screenView.srcObject = screenStream;
-                DOM.screenView.style.display = 'block';
-                DOM.cameraView.style.display = 'none';
-                DOM.visionTip.textContent = 'AI正在读取屏幕';
-                DOM.screenBtn.textContent = '关闭屏幕';
-                DOM.screenBtn.classList.remove('start');
-                DOM.screenBtn.classList.add('stop');
-                // 自动截屏幕帧
-                screenCaptureInterval = setInterval(capScreen, 3000);
-            }catch(e){alert('屏幕捕获权限失败');}
         }
 
-        function capScreen(){
-            if(!DOM.screenView.videoWidth) return;
-            const c = document.createElement('canvas');
-            c.width = DOM.screenView.videoWidth;
-            c.height = DOM.screenView.videoHeight;
-            c.getContext('2d').drawImage(DOM.screenView,0,0);
-            latestScreenFrame = c.toDataURL('image/jpeg',0.8);
-        }
-
-        // 摄像头功能
-        async function toggleCamera(){
-            if(stream){
-                stream.getTracks().forEach(t=>t.stop()); stream=null;
-                clearInterval(captureInterval);
-                DOM.cameraView.style.display='none';
-                DOM.visionTip.textContent='环境视觉关闭';
-                DOM.cameraBtn.textContent='环境视觉';
-                DOM.cameraBtn.classList.remove('stop');
-                DOM.flipBtn.disabled=true;
-                return;
+        // 2. 关闭摄像头
+        function closeCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
             }
-            try{
-                stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:currentFacingMode}});
-                DOM.cameraView.srcObject=stream;
-                DOM.cameraView.style.display='block';
-                DOM.screenView.style.display='none';
-                DOM.visionTip.textContent='AI分析环境中';
-                DOM.cameraBtn.textContent='关闭视觉';
-                DOM.cameraBtn.classList.add('stop');
-                DOM.flipBtn.disabled=false;
-                captureInterval = setInterval(capCam,3000);
-            }catch(e){alert('摄像头权限失败');}
+            document.getElementById('camera-container').style.display = 'none';
+            document.getElementById('chat-container').style.display = 'block';
+            addChatMsg("系统", "摄像头已关闭", "ai");
         }
 
-        function capCam(){
-            if(!DOM.cameraView.videoWidth)return;
-            const c=document.createElement('canvas');
-            c.width=DOM.cameraView.videoWidth; c.height=DOM.cameraView.videoHeight;
-            c.getContext('2d').drawImage(DOM.cameraView,0,0);
-            latestFrame = c.toDataURL('image/jpeg',0.8);
-        }
+        // 3. 捕获摄像头画面并发送给AI分析
+        async function captureAndAnalyze() {
+            try {
+                const preview = document.getElementById('camera-preview');
+                const canvas = document.createElement('canvas');
+                
+                // 设置画布尺寸为摄像头画面尺寸
+                canvas.width = preview.videoWidth;
+                canvas.height = preview.videoHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(preview, 0, 0, canvas.width, canvas.height);
 
-        async function flipCamera(){
-            currentFacingMode = currentFacingMode==='environment'?'user':'environment';
-            stream.getTracks().forEach(t=>t.stop());
-            await toggleCamera();
-        }
+                // 转换为Base64（压缩图片，减少传输大小）
+                const imageBase64 = canvas.toDataURL('image/jpeg', 0.8);
+                
+                // 显示捕获的图片
+                addChatMsg("我", "", "user", imageBase64);
+                addChatMsg("AI", "正在分析画面...", "ai");
 
-        // 发送消息（智能判断：屏幕>摄像头>图片>纯文字）
-        async function send(useVision){
-            const txt = DOM.input.value.trim();
-            let img = selectedImage;
-            if(useVision){
-                if(latestScreenFrame) img = latestScreenFrame;
-                else if(latestFrame) img = latestFrame;
+                // 调用AI分析图片
+                const aiReply = await sendImageToDoubao(imageBase64, "分析这张图片，描述画面内容，尽可能详细");
+                addChatMsg("AI", aiReply, "ai");
+
+            } catch (error) {
+                addChatMsg("系统", "图片捕获失败：" + error.message, "ai");
+                console.error("捕获错误：", error);
             }
-            if(!txt&&!img)return;
+        }
 
+        // 4. 屏幕识别（录制屏幕并发送给AI）
+        async function startScreenCapture() {
+            try {
+                // 请求屏幕录制权限
+                screenStream = await navigator.mediaDevices.getDisplayMedia({
+                    video: true,
+                    audio: false
+                });
+
+                // 显示屏幕录制提示
+                addChatMsg("系统", "已开始屏幕录制，正在捕获当前屏幕...", "ai");
+                
+                // 捕获第一帧屏幕画面
+                const video = document.createElement('video');
+                video.srcObject = screenStream;
+                video.play();
+
+                // 等待视频加载完成后捕获画面
+                video.onloadeddata = async () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(video, 0, 0);
+                    
+                    const imageBase64 = canvas.toDataURL('image/jpeg', 0.8);
+                    addChatMsg("我", "屏幕识别", "user", imageBase64);
+                    addChatMsg("AI", "正在分析屏幕内容...", "ai");
+
+                    // 调用AI分析屏幕
+                    const aiReply = await sendImageToDoubao(imageBase64, "分析这张屏幕截图，描述显示的内容");
+                    addChatMsg("AI", aiReply, "ai");
+
+                    // 停止屏幕录制
+                    screenStream.getTracks().forEach(track => track.stop());
+                    screenStream = null;
+                };
+
+            } catch (error) {
+                addChatMsg("系统", "屏幕录制失败：" + error.message, "ai");
+                console.error("屏幕录制错误：", error);
+            }
+        }
+
+        // 5. 发送文字消息给AI
+        async function sendTextMsg() {
+            const input = document.getElementById('msg-input');
+            const text = input.value.trim();
+            if (!text) return;
+
+            // 清空输入框
+            input.value = "";
             // 显示用户消息
-            let html = `<div class="message user-message"><div class="message-content">`;
-            if(img) html += `<img src="${img}" style="max-width:200px;max-height:200px;border-radius:12px;margin-bottom:8px">`;
-            if(txt) html += `<span>${txt}</span>`;
-            html += `</div></div>`;
-            DOM.chat.insertAdjacentHTML('beforeend',html);
-            DOM.input.value=''; selectedImage=null;
-            DOM.chat.scrollTop=DOM.chat.scrollHeight;
+            addChatMsg("我", text, "user");
+            // 显示加载提示
+            addChatMsg("AI", "正在思考...", "ai");
 
-            // AI思考
-            const mid = `m${Date.now()}`;
-            DOM.chat.insertAdjacentHTML('beforeend',`
-                <div class="message bot-message" id="${mid}">
-                    <div class="partner-tag"><span>${partnerInfo.name}</span></div>
-                    <div class="message-content">
-                        <img class="bot-avatar" src="${partnerInfo.avatar}">
-                        <span id="${mid}-c" class="thinking">思考中<span class="thinking-dot"></span><span class="thinking-dot"></span><span class="thinking-dot"></span></span>
-                    </div>
-                </div>
-            `);
-            const ce = document.getElementById(`${mid}-c`);
-            let full='';
+            // 调用AI获取回复
+            const aiReply = await sendTextToDoubao(text);
+            // 更新AI回复
+            updateLastMsg(aiReply);
+        }
 
-            try{
-                const content = img ? [
-                    {type:"text",text:txt||"分析这个画面"},
-                    {type:"image_url",image_url:{url:img}}
-                ] : txt;
-
-                const res = await fetch(CONFIG.apiUrl,{
-                    method:'POST',
-                    headers:{'Content-Type':'application/json','Authorization':`Bearer ${CONFIG.apiKey}`},
-                    body:JSON.stringify({
-                        model:CONFIG.model,
-                        messages:[
-                            {role:"system",content:partnerInfo.prompt||"你是能看屏幕、环境、图片的AI助手，简洁自然回答"},
-                            {role:"user",content}
+        // 6. 调用豆包API - 发送图片
+        async function sendImageToDoubao(imageBase64, prompt) {
+            try {
+                const response = await fetch(DOUBAO_API_URL, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer " + DOUBAO_API_KEY
+                    },
+                    body: JSON.stringify({
+                        model: DOUBAO_MODEL, // 使用你的专属模型
+                        messages: [
+                            {
+                                role: "user",
+                                content: [
+                                    { type: "text", text: prompt },
+                                    { type: "image_url", image_url: { url: imageBase64 } }
+                                ]
+                            }
                         ],
-                        stream:true
+                        temperature: 0.7
                     })
                 });
 
-                const reader = res.body.getReader();
-                const decoder = new TextDecoder();
-                while(1){
-                    const {done,value} = await reader.read();
-                    if(done)break;
-                    const chunk = decoder.decode(value);
-                    const lines = chunk.split('\n').filter(i=>i.trim());
-                    for(let line of lines){
-                        if(line.startsWith('data: ')){
-                            const d=line.slice(6);
-                            if(d==='[DONE]')break;
-                            try{
-                                const j=JSON.parse(d);
-                                const c=j.choices[0].delta.content;
-                                if(c){full+=c;ce.innerHTML=full;DOM.chat.scrollTop=DOM.chat.scrollHeight;}
-                            }catch(e){}
-                        }
-                    }
-                }
-            }catch(e){ce.innerHTML='❌ 发送失败';}
+                const data = await response.json();
+                return data.choices[0].message.content;
+
+            } catch (error) {
+                console.error("AI请求错误：", error);
+                return "分析失败：" + error.message;
+            }
         }
 
-        function uploadImage(){
-            const i=document.createElement('input');i.type='file';i.accept='image/*';
-            i.onchange=e=>{
-                const f=e.target.files[0];
-                if(f){const r=new FileReader();r.onload=ev=>selectedImage=ev.target.result;r.readAsDataURL(f);}
-            };i.click();
+        // 7. 调用豆包API - 发送文字
+        async function sendTextToDoubao(text) {
+            try {
+                const response = await fetch(DOUBAO_API_URL, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer " + DOUBAO_API_KEY
+                    },
+                    body: JSON.stringify({
+                        model: DOUBAO_MODEL, // 使用你的专属模型
+                        messages: [
+                            { role: "user", content: text }
+                        ],
+                        temperature: 0.7
+                    })
+                });
+
+                const data = await response.json();
+                return data.choices[0].message.content;
+
+            } catch (error) {
+                console.error("AI请求错误：", error);
+                return "回复失败：" + error.message;
+            }
         }
 
-        function showSetting(){
-            DOM.pName.value=partnerInfo.name;
-            DOM.pPrompt.value=partnerInfo.prompt;
-            DOM.pAvatar.value=partnerInfo.avatar;
-            DOM.setting.classList.add('active');
-            DOM.backBtn.style.display='flex';
-            DOM.title.textContent='编辑搭档';
-            DOM.editBtn.style.display='none';
+        // 8. 添加聊天消息到界面
+        function addChatMsg(sender, content, type, imageBase64 = "") {
+            const chatContainer = document.getElementById('chat-container');
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message ${type}-msg`;
+            msgDiv.id = "msg-" + Date.now(); // 唯一ID
+
+            let html = `<div class="msg-content">${content || ""}</div>`;
+            if (imageBase64) {
+                html += `<img src="${imageBase64}" class="msg-img">`;
+            }
+
+            msgDiv.innerHTML = html;
+            chatContainer.appendChild(msgDiv);
+            // 滚动到底部
+            chatContainer.scrollTop = chatContainer.scrollHeight;
         }
 
-        function hideSetting(){
-            DOM.setting.classList.remove('active');
-            DOM.backBtn.style.display='none';
-            DOM.title.textContent='我的搭档';
-            DOM.editBtn.style.display='flex';
+        // 9. 更新最后一条消息（AI回复）
+        function updateLastMsg(content) {
+            const chatContainer = document.getElementById('chat-container');
+            const lastMsg = chatContainer.lastChild;
+            if (lastMsg && lastMsg.classList.contains('ai-msg')) {
+                lastMsg.innerHTML = `<div class="msg-content">${content}</div>`;
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
         }
 
-        function savePartner(){
-            partnerInfo={
-                name:DOM.pName.value.trim()||"豆包",
-                prompt:DOM.pPrompt.value.trim(),
-                avatar:DOM.pAvatar.value.trim()||partnerInfo.avatar
-            };
-            localStorage.setItem('partnerInfo',JSON.stringify(partnerInfo));
-            updatePartnerUI();hideSetting();
-        }
+        // 监听回车发送
+        document.getElementById('msg-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendTextMsg();
+            }
+        });
 
-        function updatePartnerUI(){
-            DOM.tagName.textContent=partnerInfo.name;
-            DOM.chatAvatar.src=partnerInfo.avatar;
-        }
-
-        init();
+        // 初始化
+        addChatMsg("AI", "你好！我是你的AI搭档，支持环境视觉和屏幕识别功能～", "ai");
     </script>
 </body>
 </html>
