@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>我的 AI 搭档</title>
+    <title>我的 AI 搭档（环境感知版）</title>
     <style>
         * {
             margin: 0;
@@ -34,38 +34,21 @@
             font-size: 14px;
             cursor: pointer;
         }
-        .func-btn:active {
-            background-color: #0066cc;
+        .func-btn.stop {
+            background-color: #ff3b30;
         }
-        /* 摄像头预览（改为右下角小悬浮窗，不遮挡聊天） */
+        .func-btn:active {
+            opacity: 0.8;
+        }
+        /* 摄像头容器（完全隐藏，后台持续运行） */
         #camera-container {
             display: none;
             position: fixed;
-            bottom: 80px;
-            right: 20px;
-            width: 200px;
-            height: 150px;
-            background-color: #000;
-            border-radius: 8px;
-            overflow: hidden;
-            z-index: 100;
-        }
-        #camera-preview {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        #capture-btn {
-            position: absolute;
-            bottom: 5px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            background-color: #fff;
-            border: 2px solid #ddd;
-            cursor: pointer;
+            width: 1px;
+            height: 1px;
+            opacity: 0;
+            pointer-events: none;
+            z-index: -1;
         }
         /* 聊天区域 */
         #chat-container {
@@ -91,11 +74,6 @@
             border-radius: 10px 10px 10px 0;
             border: 1px solid #eee;
         }
-        .msg-img {
-            width: 100%;
-            border-radius: 8px;
-            margin-top: 5px;
-        }
         /* 输入区域 */
         .input-group {
             padding: 10px;
@@ -119,19 +97,21 @@
             border-radius: 20px;
             cursor: pointer;
         }
+        #send-btn:active {
+            background-color: #0066cc;
+        }
     </style>
 </head>
 <body>
     <!-- 功能按钮区 -->
     <div class="btn-group">
-        <button class="func-btn" onclick="openCamera()">环境视觉</button>
-        <button class="func-btn" onclick="closeCamera()">关闭摄像头</button>
+        <button class="func-btn" onclick="startEnvironmentSense()">启动环境感知</button>
+        <button class="func-btn stop" onclick="stopEnvironmentSense()">关闭环境感知</button>
     </div>
 
-    <!-- 摄像头预览区（右下角小窗口） -->
+    <!-- 摄像头容器（完全隐藏） -->
     <div id="camera-container">
-        <video id="camera-preview" autoplay playsinline></video>
-        <button id="capture-btn" onclick="captureAndAnalyze()"></button>
+        <video id="camera-preview" autoplay playsinline muted></video>
     </div>
 
     <!-- 聊天区域 -->
@@ -139,186 +119,171 @@
 
     <!-- 输入区域 -->
     <div class="input-group">
-        <input type="text" id="msg-input" placeholder="输入消息...">
-        <button id="send-btn" onclick="sendTextMsg()">发送</button>
+        <input type="text" id="msg-input" placeholder="和AI聊天吧（它能看到你的周围环境）...">
+        <button id="send-btn" onclick="sendMsgWithEnv()">发送</button>
     </div>
 
     <script>
         // ========== 核心配置（你的密钥和模型） ==========
         const DOUBAO_API_KEY = "34ecff81-0e0c-4c1d-8182-cb1d6889e2ee";
         const DOUBAO_MODEL = "doubao-seed-2-0-pro-260215";
-        const DOUBAO_API_URL = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"; // 修正为豆包官方API地址
+        const DOUBAO_API_URL = "https://ark.cn-beijing.volces.com/api/v3/chat/completions";
         
         // 全局变量
-        let stream = null; // 摄像头流
+        let stream = null; // 摄像头流（持续运行）
+        let isSenseRunning = false; // 环境感知是否开启
 
-        // 1. 打开摄像头（显示右下角小预览）
-        async function openCamera() {
+        // 1. 启动环境感知（摄像头后台持续运行）
+        async function startEnvironmentSense() {
+            if (isSenseRunning) {
+                addChatMsg("系统", "环境感知已经开启啦～", "ai");
+                return;
+            }
+
             try {
-                // 显示摄像头预览区（右下角小窗口）
-                document.getElementById('camera-container').style.display = 'block';
-
-                // 请求摄像头权限
+                addChatMsg("系统", "正在启动环境感知（AI开始看到你的周围）...", "ai");
+                
+                // 打开摄像头（后置，后台运行）
                 stream = await navigator.mediaDevices.getUserMedia({
                     video: { 
-                        facingMode: 'environment', // 优先使用后置摄像头
-                        width: { ideal: 1920 },
-                        height: { ideal: 1080 }
+                        facingMode: 'environment', // 优先后置摄像头
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
                     },
                     audio: false
                 });
 
-                // 显示摄像头画面（小窗口）
+                // 绑定到视频元素（后台运行，无显示）
                 const preview = document.getElementById('camera-preview');
                 preview.srcObject = stream;
-                addChatMsg("系统", "摄像头已打开，点击小窗口按钮分析画面", "ai");
+                
+                // 标记为运行中
+                isSenseRunning = true;
+                addChatMsg("系统", "环境感知已开启！现在和AI聊天，它会结合你的周围环境回答～", "ai");
+
             } catch (error) {
-                addChatMsg("系统", "摄像头打开失败：" + error.message, "ai");
-                console.error("摄像头错误：", error);
+                addChatMsg("系统", "环境感知启动失败：" + error.message, "ai");
+                console.error("摄像头启动错误：", error);
             }
         }
 
-        // 2. 关闭摄像头
-        function closeCamera() {
+        // 2. 关闭环境感知（停止摄像头）
+        function stopEnvironmentSense() {
+            if (!isSenseRunning) {
+                addChatMsg("系统", "环境感知还没开启哦～", "ai");
+                return;
+            }
+
+            // 停止摄像头流
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
                 stream = null;
             }
-            document.getElementById('camera-container').style.display = 'none';
-            addChatMsg("系统", "摄像头已关闭", "ai");
+            
+            isSenseRunning = false;
+            addChatMsg("系统", "环境感知已关闭，AI不再看到你的周围环境～", "ai");
         }
 
-        // 3. 捕获摄像头画面并发送给AI分析
-        async function captureAndAnalyze() {
-            try {
-                if (!stream) {
-                    addChatMsg("系统", "摄像头未打开", "ai");
-                    return;
-                }
-
-                const preview = document.getElementById('camera-preview');
-                const canvas = document.createElement('canvas');
-                
-                // 设置画布尺寸为摄像头画面尺寸
-                canvas.width = preview.videoWidth;
-                canvas.height = preview.videoHeight;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(preview, 0, 0, canvas.width, canvas.height);
-
-                // 转换为Base64（压缩图片，减少传输大小）
-                const imageBase64 = canvas.toDataURL('image/jpeg', 0.8);
-                
-                // 显示捕获的图片（可选，可隐藏）
-                addChatMsg("我", "", "user", imageBase64);
-                addChatMsg("AI", "正在分析画面...", "ai");
-
-                // 调用AI分析图片
-                const aiReply = await sendImageToDoubao(imageBase64, "分析这张图片，描述画面内容，尽可能详细");
-                addChatMsg("AI", aiReply, "ai");
-
-            } catch (error) {
-                addChatMsg("系统", "图片捕获失败：" + error.message, "ai");
-                console.error("捕获错误：", error);
-            }
-        }
-
-        // 4. 发送文字消息给AI
-        async function sendTextMsg() {
+        // 3. 发送消息（自动结合环境画面）
+        async function sendMsgWithEnv() {
             const input = document.getElementById('msg-input');
-            const text = input.value.trim();
-            if (!text) return;
+            const userMsg = input.value.trim();
+            if (!userMsg) return;
 
             // 清空输入框
             input.value = "";
             // 显示用户消息
-            addChatMsg("我", text, "user");
-            // 显示加载提示
-            addChatMsg("AI", "正在思考...", "ai");
+            addChatMsg("我", userMsg, "user");
+            addChatMsg("AI", "正在结合你的环境思考...", "ai");
 
-            // 调用AI获取回复
-            const aiReply = await sendTextToDoubao(text);
-            // 更新AI回复
-            updateLastMsg(aiReply);
-        }
-
-        // 5. 调用豆包API - 发送图片
-        async function sendImageToDoubao(imageBase64, prompt) {
             try {
-                const response = await fetch(DOUBAO_API_URL, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": "Bearer " + DOUBAO_API_KEY
-                    },
-                    body: JSON.stringify({
-                        model: DOUBAO_MODEL,
-                        messages: [
-                            {
-                                role: "user",
-                                content: [
-                                    { type: "text", text: prompt },
-                                    { type: "image_url", image_url: { url: imageBase64 } }
-                                ]
-                            }
-                        ],
-                        temperature: 0.7
-                    })
-                });
+                let aiReply = "";
+                // 如果环境感知已开启：捕获当前画面 + 结合问题发给AI
+                if (isSenseRunning && stream) {
+                    // 捕获当前摄像头画面
+                    const preview = document.getElementById('camera-preview');
+                    const canvas = document.createElement('canvas');
+                    canvas.width = preview.videoWidth;
+                    canvas.height = preview.videoHeight;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(preview, 0, 0, canvas.width, canvas.height);
+                    const imageBase64 = canvas.toDataURL('image/jpeg', 0.8);
 
-                const data = await response.json();
-                return data.choices[0].message.content;
+                    // 调用AI（文字+图片）
+                    aiReply = await sendMsgWithImage(userMsg, imageBase64);
+                } else {
+                    // 环境感知未开启：只发文字消息
+                    aiReply = await sendMsgOnlyText(userMsg);
+                    addChatMsg("系统", "提示：环境感知未开启，AI仅根据文字回答～", "ai");
+                }
+
+                // 更新AI回复
+                updateLastMsg(aiReply);
 
             } catch (error) {
-                console.error("AI请求错误：", error);
-                return "分析失败：" + error.message;
+                updateLastMsg("回答失败：" + error.message);
+                console.error("AI调用错误：", error);
             }
         }
 
-        // 6. 调用豆包API - 发送文字
-        async function sendTextToDoubao(text) {
-            try {
-                const response = await fetch(DOUBAO_API_URL, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": "Bearer " + DOUBAO_API_KEY
-                    },
-                    body: JSON.stringify({
-                        model: DOUBAO_MODEL,
-                        messages: [
-                            { role: "user", content: text }
-                        ],
-                        temperature: 0.7
-                    })
-                });
+        // 4. 调用AI（文字+环境图片）
+        async function sendMsgWithImage(text, imageBase64) {
+            const response = await fetch(DOUBAO_API_URL, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + DOUBAO_API_KEY
+                },
+                body: JSON.stringify({
+                    model: DOUBAO_MODEL,
+                    messages: [
+                        {
+                            role: "user",
+                            content: [
+                                { type: "text", text: `结合你看到的环境（图片），回答我的问题：${text}` },
+                                { type: "image_url", image_url: { url: imageBase64 } }
+                            ]
+                        }
+                    ],
+                    temperature: 0.7
+                })
+            });
 
-                const data = await response.json();
-                return data.choices[0].message.content;
-
-            } catch (error) {
-                console.error("AI请求错误：", error);
-                return "回复失败：" + error.message;
-            }
+            const data = await response.json();
+            return data.choices[0].message.content;
         }
 
-        // 7. 添加聊天消息到界面
-        function addChatMsg(sender, content, type, imageBase64 = "") {
+        // 5. 调用AI（仅文字）
+        async function sendMsgOnlyText(text) {
+            const response = await fetch(DOUBAO_API_URL, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + DOUBAO_API_KEY
+                },
+                body: JSON.stringify({
+                    model: DOUBAO_MODEL,
+                    messages: [{ role: "user", content: text }],
+                    temperature: 0.7
+                })
+            });
+
+            const data = await response.json();
+            return data.choices[0].message.content;
+        }
+
+        // 6. 添加聊天消息
+        function addChatMsg(sender, content, type) {
             const chatContainer = document.getElementById('chat-container');
             const msgDiv = document.createElement('div');
             msgDiv.className = `message ${type}-msg`;
-            msgDiv.id = "msg-" + Date.now();
-
-            let html = `<div class="msg-content">${content || ""}</div>`;
-            if (imageBase64) {
-                html += `<img src="${imageBase64}" class="msg-img">`;
-            }
-
-            msgDiv.innerHTML = html;
+            msgDiv.innerHTML = `<div class="msg-content">${content}</div>`;
             chatContainer.appendChild(msgDiv);
+            // 滚动到底部
             chatContainer.scrollTop = chatContainer.scrollHeight;
         }
 
-        // 8. 更新最后一条消息（AI回复）
+        // 7. 更新最后一条AI消息
         function updateLastMsg(content) {
             const chatContainer = document.getElementById('chat-container');
             const lastMsg = chatContainer.lastChild;
@@ -330,13 +295,11 @@
 
         // 监听回车发送
         document.getElementById('msg-input').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                sendTextMsg();
-            }
+            if (e.key === 'Enter') sendMsgWithEnv();
         });
 
-        // 初始化
-        addChatMsg("AI", "你好！我是你的AI搭档，支持环境视觉功能～", "ai");
+        // 初始化提示
+        addChatMsg("AI", "你好！点击「启动环境感知」，我就能看到你的周围环境，和我聊天时我会结合环境回答～", "ai");
     </script>
 </body>
 </html>
